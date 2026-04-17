@@ -13,11 +13,11 @@
 # MAGIC %md ## 1. Đọc dữ liệu từ DBFS
 
 # COMMAND ----------
-
+file_path = "/Volumes/main/default/sos_data/student_score_dataset.csv"
 df_raw = spark.read.format("csv") \
     .option("header", "true") \
     .option("inferSchema", "true") \
-    .load("/FileStore/tables/student_score_dataset.csv")
+    .load(file_path)
 
 print(f"✅ Đọc thành công: {df_raw.count()} sinh viên")
 print(f"📋 Số cột: {len(df_raw.columns)}")
