@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "2"
+# ///
 # MAGIC %md
 # MAGIC # 01 – Data Ingestion
 # MAGIC **Dự án:** Hệ thống SOA Phân tích và Quản lý Kết quả Học tập Sinh viên
@@ -13,6 +17,7 @@
 # MAGIC %md ## 1. Đọc dữ liệu từ DBFS
 
 # COMMAND ----------
+
 file_path = "/Volumes/main/default/sos_data/student_score_dataset.csv"
 df_raw = spark.read.format("csv") \
     .option("header", "true") \
