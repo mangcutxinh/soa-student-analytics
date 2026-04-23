@@ -205,7 +205,8 @@ Sau khi chạy pipeline, 4 Delta tables được tạo:
 - [x] GitHub repository
 
 ### Cuối kỳ (kế hoạch)
-- [ ] Tuần 3: Student Service, Score Service, Analytics Service (REST API)
+- [x] Score Service – CSV mode với đúng công thức điểm, cảnh báo rớt môn
+- [x] Analytics Service – at-risk detection (grade_10 < 5.0), phân tích GPA/grade
 - [ ] Tuần 4: API Gateway (FastAPI / Spring Boot)
 - [ ] Tuần 5: Dashboard trực quan
 - [ ] Tuần 6: Notification Service (cảnh báo at_risk)
@@ -213,7 +214,58 @@ Sau khi chạy pipeline, 4 Delta tables được tạo:
 
 ---
 
-## Môi trường
+## Chạy Microservices Local (không cần Postgres)
+
+Cả hai service hỗ trợ **CSV mode** (`DATA_MODE=csv`, mặc định) – không cần database.
+
+### Score Service (port 8001)
+```bash
+cd services/score-service
+pip install -r requirements.txt
+# Dùng cấu hình CSV mode (copy từ .env.local)
+cp .env.local .env
+uvicorn app.main:app --reload --port 8001
+# Mở: http://localhost:8001/docs
+```
+
+Endpoints chính:
+| Method | URL | Mô tả |
+|--------|-----|-------|
+| GET | `/api/v1/scores?semester=2024-1&page_size=300` | Lấy tất cả điểm |
+| GET | `/api/v1/scores/student/{id}` | Điểm của một sinh viên |
+| GET | `/api/v1/scores/summary/{id}` | Tóm tắt kết quả |
+| GET | `/api/v1/health` | Kiểm tra service |
+
+Mỗi item trả về có field `is_failing` và `warning: "Rớt môn"` khi `grade_10 < 5.0`.
+
+### Analytics Service (port 8002)
+```bash
+cd services/analytics-service
+pip install -r requirements.txt
+cp .env.local .env
+# .env cần SCORE_SERVICE_URL=http://localhost:8001
+uvicorn app.main:app --reload --port 8002
+# Mở: http://localhost:8002/docs
+```
+
+Endpoints chính:
+| Method | URL | Mô tả |
+|--------|-----|-------|
+| GET | `/api/v1/analytics/overview` | Tổng quan KPI |
+| GET | `/api/v1/analytics/gpa-distribution` | Phân phối điểm A/B/C/D/F |
+| GET | `/api/v1/analytics/at-risk` | Sinh viên có nguy cơ rớt môn |
+| GET | `/api/v1/analytics/student/{id}` | Kết quả từng sinh viên |
+
+### Chạy tests
+```bash
+# Score service
+cd services/score-service && python -m pytest tests/test_csv_mode.py -v
+
+# Analytics service
+cd services/analytics-service && python -m pytest tests/ -v
+```
+
+---
 
 - **Databricks:** Community Edition (Spark 3.5, Python 3.11)
 - **Delta Lake:** 3.x (built-in với Databricks Runtime 14+)

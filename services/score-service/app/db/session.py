@@ -5,13 +5,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+# In CSV mode use an in-memory SQLite so no Postgres connection is needed at startup.
+_db_url = (
+    "sqlite+aiosqlite:///:memory:"
+    if settings.DATA_MODE == "csv"
+    else settings.DATABASE_URL
 )
+_engine_kwargs: dict = (
+    {}
+    if settings.DATA_MODE == "csv"
+    else {"pool_pre_ping": True, "pool_size": 10, "max_overflow": 20}
+)
+
+engine = create_async_engine(_db_url, echo=settings.DEBUG, **_engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
