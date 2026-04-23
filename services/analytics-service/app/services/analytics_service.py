@@ -47,10 +47,13 @@ class AnalyticsService:
         for s in scores:
             by_student[s["student_id"]].append(s)
 
+        def _avg_gpa(ss: list) -> float:
+            gpas = [s["gpa"] for s in ss if s.get("gpa") is not None]
+            return sum(gpas) / len(gpas) if gpas else 0.0
+
         at_risk = sum(
             1 for sid, ss in by_student.items()
-            if (sum(s["gpa"] for s in ss if s.get("gpa")) / len(ss)) < 5.5
-               or sum(1 for s in ss if s.get("grade") == "F") >= 2
+            if _avg_gpa(ss) < 5.0 or sum(1 for s in ss if s.get("grade") == "F") >= 2
         )
 
         # top major
@@ -149,12 +152,15 @@ class AnalyticsService:
             atts  = [s["attendance_rate"] for s in ss if s.get("attendance_rate") is not None]
             avg_att = sum(atts) / len(atts) if atts else 1
 
-            if avg < 5.5 or fails >= 2 or avg_att < 0.6:
+            if avg < 5.0 or fails >= 2 or avg_att < 0.6:
+                is_failing = avg < 5.0 or any(s.get("is_failing", False) for s in ss)
                 result.append({
                     "student_id":    sid,
                     "avg_gpa":       round(avg, 2),
                     "fail_count":    fails,
                     "attendance_avg": round(avg_att, 2),
+                    "is_failing":    is_failing,
+                    "warning":       "Rớt môn" if is_failing else None,
                     "risk_level":    "HIGH" if (avg < 4.0 or fails >= 3) else "MEDIUM",
                 })
         return sorted(result, key=lambda x: x["avg_gpa"])

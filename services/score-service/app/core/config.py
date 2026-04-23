@@ -7,7 +7,16 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
 
+    # Set DATA_MODE=csv (default) to run without Postgres using the mock CSV.
+    # Set DATA_MODE=db to use the relational database defined in DATABASE_URL.
+    DATA_MODE: str = "csv"
+
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/score_db"
+
+    # Path to mock CSV dataset – relative to repo root, or absolute.
+    CSV_DATA_PATH: str = "data/mock/student_score_dataset.csv"
+    # Maximum total attendance sessions (lectures + labs) for computing attendance_rate.
+    MAX_SESSIONS: int = 20
 
     SECRET_KEY: str = "CHANGE_ME_IN_PRODUCTION_USE_OPENSSL_RAND_HEX_32"
     ALGORITHM: str = "HS256"
