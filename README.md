@@ -8,7 +8,13 @@
 
 ## Mô tả dự án
 
-Hệ thống áp dụng kiến trúc **SOA (Service-Oriented Architecture)** để thu thập, xử lý và phân tích kết quả học tập của sinh viên. Dữ liệu được xử lý qua **ETL pipeline 4 bước** trên Databricks, lưu trữ theo mô hình **Medallion Architecture** (Bronze → Silver → Gold) với Delta Lake.
+Hệ thống áp dụng kiến trúc **SOA (Service-Oriented Architecture)** để thu thập, xử lý và phân tích kết quả học tập của sinh viên. Dữ liệu được xử lý qua pipeline **Ingestion → Bronze → Silver → Gold** trên Databricks (Delta Lake) và được truy cập thông qua các microservices (Score/Analytics/…).
+
+Mục tiêu của dự án:
+- Chuẩn hóa quy trình ETL cho dữ liệu điểm
+- Tạo các bảng phân tích (GPA/Grade distribution/Attendance impact)
+- Cung cấp API để truy vấn điểm, cảnh báo rớt môn, danh sách `at_risk`
+- Sẵn sàng mở rộng theo mô hình SOA (API Gateway, Notification, Dashboard)
 
 ### Chức năng chính
 - Thu thập điểm số từ nhiều thành phần (quiz, midterm, final)
@@ -267,9 +273,66 @@ cd services/analytics-service && python -m pytest tests/ -v
 
 ---
 
-- **Databricks:** Community Edition (Spark 3.5, Python 3.11)
-- **Delta Lake:** 3.x (built-in với Databricks Runtime 14+)
-- **Ngôn ngữ:** PySpark, Python 3
+## API Gateway & Authentication (planned)
+
+> Phần này mô tả định hướng để hoàn thiện kiến trúc SOA ở cuối kỳ.
+
+- **API Gateway** đứng trước các microservices để:
+  - Xác thực **JWT**
+  - Rate limiting
+  - Routing theo prefix `/api/v1/...`
+  - Centralized logging/tracing
+
+### Luồng request (đề xuất)
+1. Client gọi `GET /api/v1/analytics/overview` đến API Gateway
+2. Gateway verify JWT, apply rate limit
+3. Gateway forward đến `analytics-service`
+4. `analytics-service` gọi `score-service` (REST) để lấy dữ liệu điểm
+5. Service trả response JSON cho client
 
 ---
 
+## Dashboard (planned)
+
+Dashboard dự kiến (Streamlit / Power BI / Superset):
+- KPI tổng quan: % pass/fail, top/bottom
+- Biểu đồ phân phối điểm (A/B/C/D/F)
+- Danh sách `at_risk`
+- So sánh điểm danh vs điểm tổng
+
+---
+
+## Notification Service (planned)
+
+Mục tiêu: gửi cảnh báo khi sinh viên `at_risk`.
+- Trigger theo schedule (hàng ngày/tuần) hoặc theo event (sau khi pipeline chạy)
+- Kênh: Email / Telegram / Webhook
+- Rule mẫu: `grade_10 < 5.0` hoặc `total_score < 50`
+
+---
+
+## Roadmap / Checklist hoàn thiện
+
+- [ ] Thêm hướng dẫn chạy `student-service` (nếu có)
+- [ ] Hoàn thiện API Gateway (FastAPI/Spring Boot) + JWT
+- [ ] Viết Notification Service + tích hợp rule `at_risk`
+- [ ] Thêm dashboard demo + ảnh chụp màn hình
+- [ ] Viết tài liệu API (OpenAPI) cho từng service
+- [ ] Docker compose (optional) cho chạy local
+- [ ] CI (GitHub Actions) chạy tests
+
+---
+
+## Troubleshooting
+
+- Nếu chạy Databricks Job lỗi path, kiểm tra lại đường dẫn upload trong Bước 2.
+- Nếu `analytics-service` không gọi được `score-service`, kiểm tra:
+  - `SCORE_SERVICE_URL` trong file `.env`
+  - Port đang chạy (8001/8002)
+- Nếu thiếu package khi chạy local, đảm bảo `pip install -r requirements.txt`.
+
+---
+
+## License
+
+Dự án phục vụ mục đích học tập. Có thể thêm license (MIT) nếu cần.
