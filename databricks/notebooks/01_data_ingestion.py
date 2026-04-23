@@ -31,11 +31,11 @@ spark.conf.set("spark.sql.legacy.timeParserPolicy", "LEGACY")
 # COMMAND ----------
 # ── paths ──────────────────────────────────────────────────────────────────────
 # On Databricks Community Edition:  upload the CSV to DBFS via UI first, then set:
-#   SOURCE_PATH = "dbfs:/FileStore/student_score_dataset.csv"
+#   SOURCE_PATH = "/Volumes/workspace/default/datasets/student_score_dataset.csv"
 # Locally (unit tests / CI):
 #   SOURCE_PATH = "data/mock/student_score_dataset.csv"
 
-SOURCE_PATH   = "dbfs:/FileStore/student_score_dataset.csv"   # ← change if needed
+SOURCE_PATH   = "/Volumes/workspace/default/datasets/student_score_dataset.csv"   # ← change if needed
 STAGING_PATH  = "dbfs:/delta/staging/student_scores"
 SEMESTER      = "2024-1"
 
