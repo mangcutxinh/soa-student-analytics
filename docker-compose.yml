@@ -1,0 +1,183 @@
+version: "3.9"
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  soa-net:
+    driver: bridge
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  pg_student:
+  pg_score:
+  pg_analytics:
+  pg_notification:
+  pgadmin_data:
+
+# ═════════════════════════════════════════════════════════════════════════════
+services:
+
+  # ── Databases ───────────────────────────────────────────────────────────────
+  db-student:
+    image: postgres:15-alpine
+    container_name: db-student
+    environment:
+      POSTGRES_DB:       student_db
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg_student:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks: [soa-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d student_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-score:
+    image: postgres:15-alpine
+    container_name: db-score
+    environment:
+      POSTGRES_DB:       score_db
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg_score:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks: [soa-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d score_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-analytics:
+    image: postgres:15-alpine
+    container_name: db-analytics
+    environment:
+      POSTGRES_DB:       analytics_db
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg_analytics:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    networks: [soa-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d analytics_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-notification:
+    image: postgres:15-alpine
+    container_name: db-notification
+    environment:
+      POSTGRES_DB:       notification_db
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg_notification:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    networks: [soa-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Services ─────────────────────────────────────────────────────────────────
+  student-service:
+    build:
+      context: ./services/student-service
+      dockerfile: Dockerfile
+    container_name: student-service
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-student:5432/student_db
+      SECRET_KEY: super_secret_change_in_prod
+      DEBUG: "false"
+      SCORE_SERVICE_URL: http://score-service:8001
+      ANALYTICS_SERVICE_URL: http://analytics-service:8002
+      NOTIFICATION_SERVICE_URL: http://notification-service:8003
+    depends_on:
+      db-student:
+        condition: service_healthy
+    networks: [soa-net]
+    restart: unless-stopped
+
+  score-service:
+    build:
+      context: ./services/score-service
+      dockerfile: Dockerfile
+    container_name: score-service
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-score:5432/score_db
+      SECRET_KEY: super_secret_change_in_prod
+      DEBUG: "false"
+      STUDENT_SERVICE_URL: http://student-service:8000
+      NOTIFICATION_SERVICE_URL: http://notification-service:8003
+    depends_on:
+      db-score:
+        condition: service_healthy
+    networks: [soa-net]
+    restart: unless-stopped
+
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+      dockerfile: Dockerfile
+    container_name: analytics-service
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-analytics:5432/analytics_db
+      DEBUG: "false"
+      SCORE_SERVICE_URL: http://score-service:8001
+    depends_on:
+      db-analytics:
+        condition: service_healthy
+      score-service:
+        condition: service_started
+    networks: [soa-net]
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-notification:5432/notification_db
+      DEBUG: "false"
+      # SMTP_HOST: smtp.gmail.com       # ← uncomment + fill to enable real email
+      # SMTP_USER: your@gmail.com
+      # SMTP_PASSWORD: your_app_password
+    depends_on:
+      db-notification:
+        condition: service_healthy
+    networks: [soa-net]
+    restart: unless-stopped
+
+  # ── pgAdmin (DB GUI) ─────────────────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    admin@soa.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks: [soa-net]
+    depends_on: [db-student, db-score, db-analytics, db-notification]
+    restart: unless-stopped

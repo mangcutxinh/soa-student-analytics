@@ -1,338 +1,203 @@
-# Hệ thống SOA Phân tích và Quản lý Kết quả Học tập Sinh viên
+# 🎓 SOA Student Analytics
 
-> **Môn học:** Kiến Trúc Hướng Dịch Vụ & Điện Toán Đám Mây  
-> **Nền tảng Cloud:** Databricks Community Edition  
-> **Báo cáo:** Tiến độ giữa kỳ
-
----
-
-## Mô tả dự án
-
-Hệ thống áp dụng kiến trúc **SOA (Service-Oriented Architecture)** để thu thập, xử lý và phân tích kết quả học tập của sinh viên. Dữ liệu được xử lý qua pipeline **Ingestion → Bronze → Silver → Gold** trên Databricks (Delta Lake) và được truy cập thông qua các microservices (Score/Analytics/…).
-
-Mục tiêu của dự án:
-- Chuẩn hóa quy trình ETL cho dữ liệu điểm
-- Tạo các bảng phân tích (GPA/Grade distribution/Attendance impact)
-- Cung cấp API để truy vấn điểm, cảnh báo rớt môn, danh sách `at_risk`
-- Sẵn sàng mở rộng theo mô hình SOA (API Gateway, Notification, Dashboard)
-
-### Chức năng chính
-- Thu thập điểm số từ nhiều thành phần (quiz, midterm, final)
-- Làm sạch và chuẩn hóa dữ liệu tự động
-- Tính điểm tổng kết, xếp loại học lực (A/B/C/D/F)
-- Phát hiện sinh viên có nguy cơ học yếu (`at_risk`)
-- Phân tích tương quan điểm danh – kết quả học tập
+> **Medallion Architecture** on Databricks — CSV ingestion → Bronze → Silver → Gold (Delta Lake)
+> Microservices backend (WIP – Week 13)
 
 ---
 
-## Thành viên nhóm
-
-| STT | Họ và Tên | MSSV | Vai Trò | Nhiệm Vụ |
-|-----|-----------|------|---------|----------|
-| 1 | [Nguyễn Thị Quỳnh Trang] | [23676071] | Nhóm trưởng | Kiến trúc SOA, API Gateway, quản lý repo |
-| 2 | [Trương Thế Hải Thịnh] | [23725051] | Thành viên | Databricks setup, Data ingestion |
-| 3 | [Phan Trần Thảo Vy] | [23670631] | Thành viên | ETL pipeline, Bronze/Silver layer |
-| 4 | [Vũ Ngọc Thu Phương] | [23696981] | Thành viên | Gold layer, Analytics service |
-| 5 | [Ngô Phước Thiên] | [23670311] | Thành viên | Dashboard, Documentation |
-
----
-
-## Kiến trúc hệ thống
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   Client Layer                       │
-│          Web App  │  Mobile App  │  LMS Portal       │
-└──────────────────────┬──────────────────────────────┘
-                       │ HTTP/REST
-┌──────────────────────▼──────────────────────────────┐
-│              API Gateway (JWT Auth, Rate-limit)      │
-└──────────┬───────────┬──────────────┬───────────────┘
-           │           │              │
-    ┌──────▼─┐  ┌──────▼─┐   ┌───────▼──┐  ┌──────────┐
-    │Student │  │ Score  │   │Analytics │  │Notif.    │
-    │Service │  │Service │   │Service   │  │Service   │
-    └──────┬─┘  └──────┬─┘   └───────┬──┘  └──────────┘
-           └───────────┴─────────────┘
-                       │ JDBC / REST
-┌──────────────────────▼──────────────────────────────┐
-│           Databricks (Spark ETL + ML)                │
-│    Ingestion → Bronze → Silver → Gold Pipeline       │
-└──────────────────────┬──────────────────────────────┘
-                       │ Delta Lake
-┌──────────────────────▼──────────────────────────────┐
-│         Storage Layer – Delta Lake (DBFS)            │
-│  /delta/bronze/  │  /delta/silver/  │  /delta/gold/  │
-└─────────────────────────────────────────────────────┘
-```
-
----
-
-## Cấu trúc Repository
+## 📁 Project Structure
 
 ```
 soa-student-analytics/
-│
-├── 📁 databricks/
-│   ├── 📁 notebooks/
-│   │   ├── 01_data_ingestion.py     ← Đọc CSV, validate
-│   │   ├── 02_bronze_layer.py       ← Lưu raw → Delta Bronze
-│   │   ├── 03_silver_layer.py       ← Làm sạch → Delta Silver
-│   │   ├── 04_gold_analytics.py     ← Tính GPA, phân tích → Gold
-│   │   └── 05_pipeline_runner.py    ← Orchestrator (dùng cho Job)
-│   └── 📁 jobs/
-│       └── etl_pipeline_job.json    ← Cấu hình Databricks Job
-│
-├── 📁 data/
-│   └── 📁 mock/
-│       └── student_score_dataset.csv  ← 300 sinh viên, 12 cột
-│
-├── 📁 services/                        ← Microservices (WIP – tuần 13)
+├── databricks/
+│   ├── notebooks/
+│   │   ├── 01_data_ingestion.py   ← Read CSV, validate schema
+│   │   ├── 02_bronze_layer.py     ← Raw data → Delta Bronze
+│   │   ├── 03_silver_layer.py     ← Clean / enrich → Delta Silver
+│   │   ├── 04_gold_analytics.py   ← GPA, stats, ML features → Gold
+│   │   └── 05_pipeline_runner.py  ← Orchestrator (used by Job)
+│   └── jobs/
+│       └── etl_pipeline_job.json  ← Databricks Job config
+├── data/
+│   └── mock/
+│       └── student_score_dataset.csv   ← 300 students, 12 columns
+├── services/                           ← Microservices (WIP – Week 13)
 │   ├── student-service/
 │   ├── score-service/
 │   ├── analytics-service/
 │   └── notification-service/
-│
-├── 📁 docs/
-│   └── 📁 architecture/
+├── docs/
+│   └── architecture/
 │       └── soa_architecture_diagram.png
-│
 └── README.md
 ```
 
 ---
 
-## Dataset
+## ⚡ Quick Start
 
-**File:** `data/mock/student_score_dataset.csv`
+### 1 · Local Setup
 
-| Cột | Mô tả | Kiểu | Phạm vi |
-|-----|-------|------|---------|
-| `student_id` | Mã sinh viên | int | 1–300 |
-| `name` | Họ tên | string | — |
-| `age` | Tuổi | int | 18–25 |
-| `gender` | Giới tính | string | Male/Female |
-| `quiz1_marks` | Điểm quiz 1 | float | 0–10 |
-| `quiz2_marks` | Điểm quiz 2 | float | 0–10 |
-| `quiz3_marks` | Điểm quiz 3 | float | 0–10 |
-| `midterm_marks` | Điểm giữa kỳ | float | 0–30 |
-| `final_marks` | Điểm cuối kỳ | float | 0–50 |
-| `previous_gpa` | GPA kỳ trước | float | 0–4 |
-| `lectures_attended` | Số buổi lý thuyết | int | 0–10 |
-| `labs_attended` | Số buổi thực hành | int | 0–10 |
-
-**Công thức tính điểm tổng kết (thang 100):**
-```
-quiz_total   = (quiz1 + quiz2 + quiz3) / 30 × 30    → 30%
-midterm_pct  = midterm / 30 × 20                     → 20%
-final_pct    = final / 50 × 50                       → 50%
-total_score  = quiz_total + midterm_pct + final_pct  → 100 điểm
-grade_10     = total_score / 10                      → thang 10
-```
-
----
-
-## Hướng dẫn chạy ETL trên Databricks
-
-### Bước 1 – Chuẩn bị Workspace
-```
-1. Đăng nhập community.cloud.databricks.com
-2. Compute → Create Cluster
-   - Name    : soa-student-analytics
-   - Runtime : 14.3 LTS (Spark 3.5, Scala 2.12)
-3. Workspace → Home → Create Folder: soa-student-analytics/
-   Tạo subfolder: 01_ingestion/ 02_bronze/ 03_silver/ 04_gold/
-```
-
-### Bước 2 – Upload data
-```
-Catalog → Add Data → DBFS → Upload File
-→ Upload: data/mock/student_score_dataset.csv
-→ Đường dẫn: "/Volumes/main/default/sos_data/student_score_dataset.csv"
-```
-
-### Bước 3 – Import notebooks
-```
-Mỗi folder: chuột phải → Import → chọn file .py tương ứng
-01_ingestion/ → 01_data_ingestion.py
-02_bronze/    → 02_bronze_layer.py
-03_silver/    → 03_silver_layer.py
-04_gold/      → 04_gold_analytics.py
-```
-
-### Bước 4 – Chạy từng bước (hoặc dùng Job)
-```python
-# Chạy thủ công theo thứ tự:
-01_data_ingestion.py   # Validate dữ liệu
-02_bronze_layer.py     # /delta/bronze/students
-03_silver_layer.py     # /delta/silver/students_clean
-04_gold_analytics.py   # /delta/gold/student_gpa
-                       # /delta/gold/score_distribution
-                       # /delta/gold/attendance_impact
-```
-
-### Bước 5 – Tạo Databricks Job (Workflows)
-```
-Workflows → Create Job → Tên: ETL_Student_Analytics_Pipeline
-Task 1: 01_data_ingestion  (Notebook)
-Task 2: 02_bronze_layer    (depends on Task 1)
-Task 3: 03_silver_layer    (depends on Task 2)
-Task 4: 04_gold_analytics  (depends on Task 3)
-→ Run Now
-```
-
----
-
-## Delta Lake Tables
-
-Sau khi chạy pipeline, 4 Delta tables được tạo:
-
-| Table | Path | Mô tả |
-|-------|------|-------|
-| Bronze raw | `/delta/bronze/students` | Dữ liệu gốc + metadata |
-| Silver clean | `/delta/silver/students_clean` | Đã làm sạch + tính điểm |
-| Gold GPA | `/delta/gold/student_gpa` | Xếp loại từng SV |
-| Gold Stats | `/delta/gold/score_distribution` | Thống kê tổng hợp |
-| Gold Attendance | `/delta/gold/attendance_impact` | Tương quan điểm danh |
-
----
-
-## Tiến độ dự án
-
-### Giữa kỳ (hoàn thành)
-- [x] Thiết kế kiến trúc SOA (5 layers)
-- [x] Dataset 300 sinh viên, 12 cột điểm số
-- [x] Databricks Workspace & Serverless setup
-- [x] Notebook 01 – Data ingestion & validation
-- [x] Notebook 02 – Bronze Delta layer
-- [x] Notebook 03 – Silver layer (ETL, tính điểm)
-- [x] Notebook 04 – Gold layer (GPA, xếp loại, at_risk)
-- [x] Databricks Job / Workflow pipeline
-- [x] GitHub repository
-
-### Cuối kỳ (kế hoạch)
-- [x] Score Service – CSV mode với đúng công thức điểm, cảnh báo rớt môn
-- [x] Analytics Service – at-risk detection (grade_10 < 5.0), phân tích GPA/grade
-- [ ] Tuần 4: API Gateway (FastAPI / Spring Boot)
-- [ ] Tuần 5: Dashboard trực quan
-- [ ] Tuần 6: Notification Service (cảnh báo at_risk)
-- [ ] Tuần 7: End-to-end testing + tài liệu hoàn chỉnh
-
----
-
-## Chạy Microservices Local (không cần Postgres)
-
-Cả hai service hỗ trợ **CSV mode** (`DATA_MODE=csv`, mặc định) – không cần database.
-
-### Score Service (port 8001)
 ```bash
-cd services/score-service
-pip install -r requirements.txt
-# Dùng cấu hình CSV mode (copy từ .env.local)
-cp .env.local .env
-uvicorn app.main:app --reload --port 8001
-# Mở: http://localhost:8001/docs
+git clone https://github.com/<your-username>/soa-student-analytics.git
+cd soa-student-analytics
+pip install pyspark delta-spark pandas
 ```
 
-Endpoints chính:
-| Method | URL | Mô tả |
-|--------|-----|-------|
-| GET | `/api/v1/scores?semester=2024-1&page_size=300` | Lấy tất cả điểm |
-| GET | `/api/v1/scores/student/{id}` | Điểm của một sinh viên |
-| GET | `/api/v1/scores/summary/{id}` | Tóm tắt kết quả |
-| GET | `/api/v1/health` | Kiểm tra service |
+### 2 · Upload Data to Databricks
 
-Mỗi item trả về có field `is_failing` và `warning: "Rớt môn"` khi `grade_10 < 5.0`.
+```
+Databricks UI → Data → DBFS → FileStore
+Upload: data/mock/student_score_dataset.csv
+Result: dbfs:/FileStore/student_score_dataset.csv
+```
 
-### Analytics Service (port 8002)
+---
+
+## 🔗 GitHub → Databricks Integration (Git Repos)
+
+### Step 1 — Generate GitHub Token
+1. GitHub → **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)**
+2. Scopes: `repo` ✅
+3. Copy the token
+
+### Step 2 — Link in Databricks
+```
+Databricks UI
+→ User Settings (top right) → Git Integration
+→ Provider: GitHub
+→ Token: paste your token
+→ Save
+```
+
+### Step 3 — Add Repo
+```
+Databricks → Repos → Add Repo
+→ URL: https://github.com/<your-username>/soa-student-analytics
+→ Provider: GitHub
+→ Clone
+```
+
+Your repo is now at:
+```
+/Repos/<your-username>/soa-student-analytics/
+```
+
+### Step 4 — Update notebook paths in Job JSON
+Open `databricks/jobs/etl_pipeline_job.json` and replace:
+```
+<your-username>  →  your actual Databricks username
+```
+
+---
+
+## 🚀 Running the Pipeline
+
+### Option A — Run notebooks manually (dev/test)
+
+Open each notebook in Databricks and click **Run All** in order:
+```
+01 → 02 → 03 → 04
+```
+
+### Option B — Create a Job (production)
+
 ```bash
-cd services/analytics-service
-pip install -r requirements.txt
-cp .env.local .env
-# .env cần SCORE_SERVICE_URL=http://localhost:8001
-uvicorn app.main:app --reload --port 8002
-# Mở: http://localhost:8002/docs
+# Using Databricks CLI
+pip install databricks-cli
+databricks configure --token   # enter host + token
+
+databricks jobs create --json-file databricks/jobs/etl_pipeline_job.json
 ```
 
-Endpoints chính:
-| Method | URL | Mô tả |
-|--------|-----|-------|
-| GET | `/api/v1/analytics/overview` | Tổng quan KPI |
-| GET | `/api/v1/analytics/gpa-distribution` | Phân phối điểm A/B/C/D/F |
-| GET | `/api/v1/analytics/at-risk` | Sinh viên có nguy cơ rớt môn |
-| GET | `/api/v1/analytics/student/{id}` | Kết quả từng sinh viên |
+Or via UI:
+```
+Databricks → Workflows → Jobs → Create Job → Import JSON
+Paste contents of: databricks/jobs/etl_pipeline_job.json
+```
 
-### Chạy tests
-```bash
-# Score service
-cd services/score-service && python -m pytest tests/test_csv_mode.py -v
+### Option C — Run orchestrator notebook
+Run `05_pipeline_runner.py` directly — it chains all stages.
 
-# Analytics service
-cd services/analytics-service && python -m pytest tests/ -v
+---
+
+## 🗄️ Delta Lake Paths
+
+| Layer   | Path                              | Format        |
+|---------|-----------------------------------|---------------|
+| Staging | `dbfs:/delta/staging/student_scores` | Parquet    |
+| Bronze  | `dbfs:/delta/bronze/student_scores`  | Delta Lake |
+| Silver  | `dbfs:/delta/silver/student_scores`  | Delta Lake |
+| Gold — GPA     | `dbfs:/delta/gold/student_gpa_summary` | Delta |
+| Gold — Major   | `dbfs:/delta/gold/major_analytics`     | Delta |
+| Gold — Subject | `dbfs:/delta/gold/subject_analytics`   | Delta |
+| Gold — ML      | `dbfs:/delta/gold/ml_features`         | Delta |
+| Pipeline logs  | `dbfs:/delta/pipeline_runs`            | Delta |
+
+---
+
+## 📊 Dataset Schema
+
+`student_score_dataset.csv` — 300 rows, 12 columns
+
+| Column            | Type    | Description               |
+|-------------------|---------|---------------------------|
+| `student_id`      | String  | Unique ID (SV0001…)       |
+| `full_name`       | String  | Vietnamese full name       |
+| `major`           | String  | Faculty / major            |
+| `year_of_study`   | Integer | 1–4                        |
+| `subject`         | String  | Course name                |
+| `midterm_score`   | Double  | 0–10                       |
+| `final_score`     | Double  | 0–10                       |
+| `attendance_rate` | Double  | 0.0–1.0                    |
+| `gpa`             | Double  | Computed (raw)             |
+| `grade`           | String  | A / B / C / D / F          |
+| `exam_date`       | String  | yyyy-MM-dd                 |
+| `semester`        | String  | e.g. `2024-1`             |
+
+**GPA formula:** `(midterm × 0.30 + final × 0.70) × attendance_rate`
+
+---
+
+## 🏗️ Pipeline Architecture
+
+```
+CSV (DBFS)
+    │
+    ▼  01_data_ingestion (schema validation, null checks, score range)
+Staging (Parquet)
+    │
+    ▼  02_bronze_layer (MERGE by hash — idempotent, partitioned by semester/grade)
+Delta Bronze  /delta/bronze/
+    │
+    ▼  03_silver_layer (dedup, cast, normalise strings, enrich: tier/improvement)
+Delta Silver  /delta/silver/
+    │
+    ▼  04_gold_analytics (4 aggregation tables + ML feature store)
+Delta Gold    /delta/gold/
+    ├── student_gpa_summary
+    ├── major_analytics
+    ├── subject_analytics
+    └── ml_features (label: at_risk)
 ```
 
 ---
 
-## API Gateway & Authentication (planned)
+## 🔧 Cluster Config
 
-> Phần này mô tả định hướng để hoàn thiện kiến trúc SOA ở cuối kỳ.
-
-- **API Gateway** đứng trước các microservices để:
-  - Xác thực **JWT**
-  - Rate limiting
-  - Routing theo prefix `/api/v1/...`
-  - Centralized logging/tracing
-
-### Luồng request (đề xuất)
-1. Client gọi `GET /api/v1/analytics/overview` đến API Gateway
-2. Gateway verify JWT, apply rate limit
-3. Gateway forward đến `analytics-service`
-4. `analytics-service` gọi `score-service` (REST) để lấy dữ liệu điểm
-5. Service trả response JSON cho client
+| Setting        | Value                    |
+|----------------|--------------------------|
+| Runtime        | 14.3 LTS (Spark 3.5)     |
+| Scala          | 2.12                     |
+| Workers        | 2 (autoscale 1–4)        |
+| Library        | `delta-spark==2.4.0`     |
+| Schedule       | Daily 06:00 (GMT+7)      |
 
 ---
 
-## Dashboard (planned)
+## 📬 Contact
 
-Dashboard dự kiến (Streamlit / Power BI / Superset):
-- KPI tổng quan: % pass/fail, top/bottom
-- Biểu đồ phân phối điểm (A/B/C/D/F)
-- Danh sách `at_risk`
-- So sánh điểm danh vs điểm tổng
-
----
-
-## Notification Service (planned)
-
-Mục tiêu: gửi cảnh báo khi sinh viên `at_risk`.
-- Trigger theo schedule (hàng ngày/tuần) hoặc theo event (sau khi pipeline chạy)
-- Kênh: Email / Telegram / Webhook
-- Rule mẫu: `grade_10 < 5.0` hoặc `total_score < 50`
-
----
-
-## Roadmap / Checklist hoàn thiện
-
-- [ ] Thêm hướng dẫn chạy `student-service` (nếu có)
-- [ ] Hoàn thiện API Gateway (FastAPI/Spring Boot) + JWT
-- [ ] Viết Notification Service + tích hợp rule `at_risk`
-- [ ] Thêm dashboard demo + ảnh chụp màn hình
-- [ ] Viết tài liệu API (OpenAPI) cho từng service
-- [ ] Docker compose (optional) cho chạy local
-- [ ] CI (GitHub Actions) chạy tests
-
----
-
-## Troubleshooting
-
-- Nếu chạy Databricks Job lỗi path, kiểm tra lại đường dẫn upload trong Bước 2.
-- Nếu `analytics-service` không gọi được `score-service`, kiểm tra:
-  - `SCORE_SERVICE_URL` trong file `.env`
-  - Port đang chạy (8001/8002)
-- Nếu thiếu package khi chạy local, đảm bảo `pip install -r requirements.txt`.
-
----
-
-## License
-
-Dự án phục vụ mục đích học tập. Có thể thêm license (MIT) nếu cần.
+| Role | Name |
+|------|------|
+| Data Engineering | _your name here_ |
+| Microservices (WIP) | _team_ |

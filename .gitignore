@@ -1,21 +1,33 @@
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-.pytest_cache/
-
-# Virtual environments
+*.egg-info/
+dist/
+build/
+.env
 .venv/
 venv/
-env/
 
-# Environment files (keep .env.example and .env.local committed)
-.env
+# Databricks
+.databricks/
+*.dbc
 
-# Editors
-.vscode/
+# Delta / Spark local
+derby.log
+metastore_db/
+spark-warehouse/
+
+# Data (don't commit large CSVs to git — use DBFS or S3)
+# data/mock/*.csv   # uncomment to exclude CSVs
+
+# IDE
 .idea/
+.vscode/
+*.iml
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log

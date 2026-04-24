@@ -9,9 +9,8 @@ from app.api.v1.endpoints.scores import router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.DATA_MODE != "csv":
-        await create_tables()
-    print(f"✅ {settings.APP_NAME} ready (mode={settings.DATA_MODE})")
+    await create_tables()
+    print(f"✅ {settings.APP_NAME} ready")
     yield
 
 
